@@ -1,3 +1,6 @@
 scikit-image
 black
 tqdm
+Pillow
+pytorch
+torchvision
