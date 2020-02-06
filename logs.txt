@@ -1,0 +1,1 @@
+[1] resnet50, imgaug rotations, clache, gamma contrast, validation split, 3.6175 in 8 epoch

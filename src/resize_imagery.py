@@ -5,14 +5,13 @@ from skimage.transform import resize
 from pathlib import Path
 from tqdm import tqdm
 
-FROM = 543
 TO = 572
 
 
 def main(ims_path):
     for im_path in tqdm(Path(ims_path).glob("*.tif")):
         im = imread(im_path)
-        if im.shape[0] == FROM and im.shape[1] == FROM:
+        if im.shape[0] != TO or im.shape[1] == TO:
             target_shape = list(im.shape)
             target_shape[0] = TO
             target_shape[1] = TO
