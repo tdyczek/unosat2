@@ -4,7 +4,6 @@ from imgaug import augmenters as iaa
 from skimage.io import imread
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.model_selection import train_test_split
-from PIL import Image
 from tqdm import tqdm
 from mrcnn import utils
 

@@ -15,7 +15,9 @@ class SatelliteConfig(Config):
 
     TRAIN_ROIS_PER_IMAGE = 256
 
-    BACKBONE = "resnet50"
+    OPTIMIZER = "Adam"
+
+    BACKBONE = "resnet101"
 
 
 def get_config(train_set, val_set):
@@ -25,6 +27,7 @@ def get_config(train_set, val_set):
     config.STEPS_PER_EPOCH = train_steps
     config.VALIDATION_STEPS = val_steps
     return config
+
 
 class LookupConfig(SatelliteConfig):
     GPU_COUNT = 1
