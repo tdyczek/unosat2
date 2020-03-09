@@ -11,6 +11,9 @@ from albumentations import Compose, Normalize, \
     CLAHE, RGBShift, RandomGamma, Resize
 from torch.utils.data import Dataset
 from skimage.transform import resize
+import numpy as np
+from skimage.morphology import binary_dilation
+
 
 test_aug = Normalize()
 
@@ -29,7 +32,7 @@ train_aug = Compose([
 test_seg_aug = Compose([
     Resize(576, 576, 0, p=1),
     Normalize()
-])
+], additional_targets={'mask1': 'mask', 'mask2': 'mask'})
 
 train_seg_aug = Compose([
     RandomRotate90(),
@@ -42,7 +45,7 @@ train_seg_aug = Compose([
     IAAAdditiveGaussianNoise(p=.2),
     Resize(576, 576, 0),
     Normalize()
-])
+], additional_targets={'mask1': 'mask', 'mask2': 'mask'})
 
 
 class ClassifierDataset(Dataset):
@@ -129,11 +132,31 @@ class SegmentationDataset(Dataset):
     def __getitem__(self, idx):
         im_path = self.ims[idx]
         raw_img = np.array(imread(im_path))
-        mask = (np.array(imread(self.msks_path / im_path.name)) > 0).astype(float)
 
-        data = self.aug(image=raw_img, mask=mask)
+        raw_mask = np.array(imread(self.msks_path / im_path.name))
+        cnt_img = mask_to_contours(raw_mask)
+        mask = (raw_mask > 0).astype('float32')
+
+        data = self.aug(image=raw_img, mask1=mask, mask2=cnt_img)
 
         aug_img = data['image']
-        mask = data['mask']
+        mask1 = data['mask1']
+        mask2 = data['mask2']
 
-        return aug_img.transpose([2, 0, 1]), mask[None, ...]
+        y = np.stack([mask1, mask2], axis=0)
+
+        return aug_img.transpose([2, 0, 1]), y
+
+
+def mask_to_contours(mask):
+    un = np.unique(mask)[1:]
+    mask_all = mask[..., np.newaxis] == un
+
+    for i in range(mask_all.shape[-1]):
+        layer = mask_all[..., i]
+        bold_layer = binary_dilation(mask_all[..., i])
+        borders = bold_layer * (~layer)
+        mask_all[..., i] = borders
+
+    overlapping = np.sum(mask_all, axis=-1) > 0
+    return overlapping.astype('float32')

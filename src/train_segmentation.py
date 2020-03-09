@@ -3,17 +3,25 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
+from pytorch_toolbelt.losses import JointLoss, WeightedLoss, JaccardLoss
 from src.data_provider import SegmentationDataset
-from src.metrics import dice_loss, iou, jaccard
+from pathlib import Path
+
+out_dir = Path('data/test/preds2/')
+
+
+def make_loss():
+    loss1 = JaccardLoss(mode="multilabel")
+    loss2 = nn.BCEWithLogitsLoss()
+    return JointLoss(loss1, loss2, .9, .1)
 
 
 def train(model, optimizer, ims_path, msks_path):
     model = model.train().cuda()
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = make_loss()
+    jaccard = JaccardLoss(mode='multilabel')
 
     losses = []
-    ious = []
     jaccs = []
 
     positives = DataLoader(SegmentationDataset(ims_path / 'true', msks_path, True),
@@ -34,13 +42,9 @@ def train(model, optimizer, ims_path, msks_path):
             y = torch.cat((y_p, y_n), 0).cuda()
 
             y_pred = model(x)
-            y_pred_probs = torch.sigmoid(y_pred).view(-1)
-            loss = criterion(y_pred.view(-1), y.view(-1)) + \
-                   .1 * dice_loss(y_pred_probs, y)
+            loss = criterion(y_pred, y)
+            jacc_ = 1 - jaccard(y_pred, y)
 
-            iou_ = iou(y_pred_probs.float(), y.byte())
-            jacc_ = jaccard(y_pred_probs.float(), y)
-            ious.append(iou_.item())
             losses.append(loss.item())
             jaccs.append(jacc_.item())
 
@@ -48,7 +52,6 @@ def train(model, optimizer, ims_path, msks_path):
             optimizer.step()
 
             pbar.set_postfix(loss=np.mean(losses),
-                             iou=np.mean(ious),
                              jacc=np.mean(jaccs),
                              refresh=True)
             pbar.update()
@@ -64,26 +67,23 @@ def test(model, ims_path, msks_path):
                           num_workers=4, pin_memory=True, shuffle=False)
 
     losses = []
-    ious = []
     jaccs = []
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = make_loss()
+    jaccard = JaccardLoss(mode='multilabel')
 
     for i, (x, y) in enumerate(tqdm(test_set)):
         x, y = x.cuda(), y.cuda()
-        y_real = y.view(-1).float()
+        y_real = y.float()
 
         y_pred = model(x)
-        y_pred_probs = torch.sigmoid(y_pred).view(-1)
-        loss = criterion(y_pred.view(-1), y_real) + \
-               .1 * dice_loss(y_pred_probs, y_real)
 
-        iou_ = iou(y_pred_probs.float(), y_real.byte())
-        jacc_ = jaccard(y_pred_probs.float(), y_real)
-        ious.append(iou_.item())
+        loss = criterion(y_pred, y_real)
+
+        jacc_ = 1 - jaccard(y_pred, y_real)
         losses.append(loss.item())
         jaccs.append(jacc_.item())
 
-    print(f'Testing metrics: iou {np.mean(ious)}, '
+    print(f'Testing metrics: '
           f'jacc {np.mean(jaccs)}, '
           f'loss {np.mean(losses)}')
-    return 1 - np.mean(ious)
+    return 1 - np.mean(jaccs)

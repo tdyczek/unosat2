@@ -10,11 +10,10 @@ import torch
 from skimage.transform import resize
 from skimage import measure
 
-
 CLASSIFIER_PREDS = 'preds.csv'
 IMAGES_DIR = 'data/test/img/'
-OUT_DIR = 'data/test/preds1/'
-MODEL_DIR = 'models/1/resnet50_32'
+OUT_DIR = 'data/test/preds2/'
+MODEL_DIR = 'models/1/resnet50_2'
 
 
 def save_negatives(neg_df, images_dir, out_dir):
@@ -25,6 +24,7 @@ def save_negatives(neg_df, images_dir, out_dir):
         im = t.imread(str(im_path))
         out_data = np.zeros(im.shape[:2], dtype='float32')
         t.imsave(str(out_path), out_data)
+
 
 def save_positives(pos_df, images_dir, out_dir, model_dir):
     print('Loading model')
@@ -39,25 +39,35 @@ def save_positives(pos_df, images_dir, out_dir, model_dir):
     with torch.no_grad():
         for name, im, shape in tqdm(dataloader):
             im = im.cuda()
-            preds = model(im) > 0
+            preds = torch.sigmoid(model(im))
 
-            preds_np = preds.cpu().numpy()[0, 0]
+            preds_np = preds.cpu().numpy()[0]
+
+            buildings = preds_np[0] > 0.5
+            borders = preds_np[1] > 0.5
+
+            mask = buildings * (~borders)
+
             shape0 = shape[0].item()
             shape1 = shape[1].item()
-            new_im = resize(preds_np, (shape0, shape1), order=0, preserve_range=True).astype(
+            resized_mask = resize(mask, (shape0, shape1), order=0, preserve_range=True).astype(
                 'float32'
             )
-            all_labels = measure.label(new_im, background=0).astype('float32')
+            all_labels = measure.label(resized_mask, background=0).astype('float32')
 
             mask_path = out_dir / name[0]
+            borders_path = out_dir / f'{name[0]}_borders'
+            buildings_path = out_dir / f'{name[0]}_buildings'
             t.imsave(mask_path, all_labels)
+            t.imsave(borders_path, borders)
+            t.imsave(buildings_path, buildings)
 
 
 def main(cls_preds_file, images_dir, out_dir, model_dir):
     preds_df = pd.read_csv('preds.csv')
     neg_df = preds_df[preds_df['class'] == 0]
     pos_df = preds_df[preds_df['class'] == 1]
-    # save_negatives(neg_df, images_dir, out_dir)
+    save_negatives(neg_df, images_dir, out_dir)
     save_positives(pos_df, images_dir, out_dir, model_dir)
 
 

@@ -68,7 +68,7 @@ class DecoderBlockV2(nn.Module):
 
 class UNetResNet18(nn.Module):
     def __init__(self,
-                 num_classes=1,
+                 num_classes=2,
                  num_filters=32,
                  pretrained=True,
                  is_deconv=False,

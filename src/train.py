@@ -32,22 +32,21 @@ def train_test_loop(task, epochs, init_lr, out_path, train_path, val_path):
         train = train_classifier
     elif task == 'segmentation':
         model = UNetResNet18()
-        model.load_state_dict(torch.load('models/1/resnet50_20'))
-        model.freeze()
+        model.load_state_dict(torch.load('models/1/resnet50_2'))
+        # model.freeze()
         test = test_segmentation
         train = train_segmentation
-
     else:
         raise Exception()
 
     test(model, VAL_PATH, MASK_PATH)
 
     optimizer = Adam(model.parameters(), lr=init_lr)
-    scheduler = ReduceLROnPlateau(optimizer, patience=2, factor=0.5)
+    scheduler = ReduceLROnPlateau(optimizer, patience=2, factor=0.2)
 
     min_loss = sys.maxsize
 
-    for epoch in range(21, epochs):
+    for epoch in range(epochs):
         print(f'Epoch {epoch}, lr {optimizer.param_groups[0]["lr"]}')
 
         if epoch > 20 and task == 'segmentation':
