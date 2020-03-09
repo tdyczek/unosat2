@@ -9,11 +9,14 @@ from src.models import UNetResNet18
 import torch
 from skimage.transform import resize
 from skimage import measure
+import scipy.ndimage as ndimage
+from skimage.morphology import watershed
+
 
 CLASSIFIER_PREDS = 'preds.csv'
 IMAGES_DIR = 'data/test/img/'
-OUT_DIR = 'data/test/preds2/'
-MODEL_DIR = 'models/1/resnet50_2'
+OUT_DIR = 'data/test/preds3/'
+MODEL_DIR = 'models/1/best_model1'
 
 
 def save_negatives(neg_df, images_dir, out_dir):
@@ -25,6 +28,17 @@ def save_negatives(neg_df, images_dir, out_dir):
         out_data = np.zeros(im.shape[:2], dtype='float32')
         t.imsave(str(out_path), out_data)
 
+
+def label_watershed(before, after, component_size=20):
+    markers = ndimage.label(after)[0]
+
+    labels = watershed(-before, markers, mask=before, connectivity=8)
+    unique, counts = np.unique(labels, return_counts=True)
+
+    for (k, v) in dict(zip(unique, counts)).items():
+        if v < component_size:
+            labels[labels == k] = 0
+    return labels
 
 def save_positives(pos_df, images_dir, out_dir, model_dir):
     print('Loading model')
@@ -43,24 +57,25 @@ def save_positives(pos_df, images_dir, out_dir, model_dir):
 
             preds_np = preds.cpu().numpy()[0]
 
-            buildings = preds_np[0] > 0.5
-            borders = preds_np[1] > 0.5
-
-            mask = buildings * (~borders)
+            mask = (preds_np[0] > 0.5).astype(np.uint8)
+            contour = preds_np[1]
+            seed = ((mask * (1 - contour)) > 0.5).astype(np.uint8)
 
             shape0 = shape[0].item()
             shape1 = shape[1].item()
-            resized_mask = resize(mask, (shape0, shape1), order=0, preserve_range=True).astype(
-                'float32'
+            mask = resize(mask, (shape0, shape1), order=0, preserve_range=True).astype(
+                'uint8'
             )
-            all_labels = measure.label(resized_mask, background=0).astype('float32')
+            seed = resize(seed, (shape0, shape1), order=0, preserve_range=True).astype(
+                'uint8'
+            )
+
+            labels = label_watershed(mask, seed)
 
             mask_path = out_dir / name[0]
-            borders_path = out_dir / f'{name[0]}_borders'
-            buildings_path = out_dir / f'{name[0]}_buildings'
-            t.imsave(mask_path, all_labels)
-            t.imsave(borders_path, borders)
-            t.imsave(buildings_path, buildings)
+            # borders_path = out_dir / f'{name[0]}_borders'
+            t.imsave(mask_path, labels)
+            # t.imsave(borders_path, contour)
 
 
 def main(cls_preds_file, images_dir, out_dir, model_dir):
