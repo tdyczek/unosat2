@@ -1,6 +1,5 @@
 import numpy as np
 
-from imgaug import augmenters as iaa
 from skimage.io import imread
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.model_selection import train_test_split
@@ -8,7 +7,7 @@ from tqdm import tqdm
 from albumentations import Compose, Normalize, \
     RandomRotate90, VerticalFlip, HorizontalFlip, \
     RandomBrightnessContrast, IAAAdditiveGaussianNoise, \
-    CLAHE, RGBShift, RandomGamma, Resize
+    CLAHE, RGBShift, RandomGamma, Resize, RandomSizedCrop
 from torch.utils.data import Dataset
 from skimage.transform import resize
 import numpy as np
@@ -38,11 +37,12 @@ train_seg_aug = Compose([
     RandomRotate90(),
     VerticalFlip(),
     HorizontalFlip(),
-    RGBShift(p=.2),
-    RandomGamma(p=.2),
-    CLAHE(p=.2),
-    RandomBrightnessContrast(p=.2),
-    IAAAdditiveGaussianNoise(p=.2),
+    RandomSizedCrop((450, 450), 576, 576, interpolation=0, p=.3),
+    RGBShift(p=.1),
+    RandomGamma(p=.1),
+    CLAHE(p=.1),
+    RandomBrightnessContrast(p=.1),
+    IAAAdditiveGaussianNoise(p=.1),
     Resize(576, 576, 0),
     Normalize()
 ], additional_targets={'mask1': 'mask', 'mask2': 'mask'})

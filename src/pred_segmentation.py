@@ -11,12 +11,12 @@ from skimage.transform import resize
 from skimage import measure
 import scipy.ndimage as ndimage
 from skimage.morphology import watershed
-
+from src.unet_models import AlbuNet
 
 CLASSIFIER_PREDS = 'preds.csv'
 IMAGES_DIR = 'data/test/img/'
-OUT_DIR = 'data/test/preds3/'
-MODEL_DIR = 'models/1/best_model1'
+OUT_DIR = 'data/test/preds4/'
+MODEL_DIR = 'models/1/albunet_best'
 
 
 def save_negatives(neg_df, images_dir, out_dir):
@@ -42,7 +42,7 @@ def label_watershed(before, after, component_size=20):
 
 def save_positives(pos_df, images_dir, out_dir, model_dir):
     print('Loading model')
-    model = UNetResNet18()
+    model = AlbuNet(num_classes=2, pretrained=False)
     model.load_state_dict(torch.load(model_dir))
     model.eval().cuda()
 

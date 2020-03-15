@@ -28,18 +28,18 @@ def train(model, optimizer, ims_path, msks_path):
                            batch_size=7,
                            num_workers=3, pin_memory=True, shuffle=True)
 
-    negatives = DataLoader(SegmentationDataset(ims_path / 'false', msks_path, True),
-                           batch_size=1,
-                           num_workers=1, pin_memory=True, shuffle=True)
-
-    batch_iterator = enumerate(zip(positives, negatives))
+    #negatives = DataLoader(SegmentationDataset(ims_path / 'false', msks_path, True),
+    #                       batch_size=1,
+    #                       num_workers=1, pin_memory=True, shuffle=True)
+    #
+    #batch_iterator = enumerate(zip(positives, negatives))
 
     with tqdm(total=len(positives)) as pbar:
-        for i, ((x_p, y_p), (x_n, y_n)) in batch_iterator:
+        for i, (x, y) in enumerate(positives):
             optimizer.zero_grad()
 
-            x = torch.cat((x_p, x_n), 0).cuda()
-            y = torch.cat((y_p, y_n), 0).cuda()
+            x = x.cuda()
+            y = y.cuda()
 
             y_pred = model(x)
             loss = criterion(y_pred, y)
@@ -63,7 +63,7 @@ def test(model, ims_path, msks_path):
     model = model.eval().cuda()
 
     test_set = DataLoader(SegmentationDataset(ims_path, msks_path, False),
-                          batch_size=16,
+                          batch_size=8,
                           num_workers=4, pin_memory=True, shuffle=False)
 
     losses = []

@@ -10,6 +10,8 @@ from torchvision import models
 from src.train_classifier import train as train_classifier, test as test_classifier
 from src.train_segmentation import test as test_segmentation, train as train_segmentation
 from src.models import resnet18_classifier, UNetResNet18
+from src.unet_models import AlbuNet
+
 
 OUT_PATH = 'models/1/'
 TRAIN_PATH = Path('data/train/img/')
@@ -18,7 +20,7 @@ MASK_PATH = Path('data/train/msk/')
 
 
 def save_model(model, epoch, out_path):
-    model_name = f"resnet50_{epoch}"
+    model_name = f"albunet_{epoch}"
     path = Path(out_path) / model_name
     torch.save(model.state_dict(), path)
 
@@ -31,9 +33,8 @@ def train_test_loop(task, epochs, init_lr, out_path, train_path, val_path):
         test = test_classifier
         train = train_classifier
     elif task == 'segmentation':
-        model = UNetResNet18()
-        model.load_state_dict(torch.load('models/1/resnet50_2'))
-        # model.freeze()
+        model = AlbuNet(num_classes=2, pretrained=True)
+        model.load_state_dict(torch.load('models/1/albunet_10'))
         test = test_segmentation
         train = train_segmentation
     else:
@@ -48,10 +49,6 @@ def train_test_loop(task, epochs, init_lr, out_path, train_path, val_path):
 
     for epoch in range(epochs):
         print(f'Epoch {epoch}, lr {optimizer.param_groups[0]["lr"]}')
-
-        if epoch > 20 and task == 'segmentation':
-            model.unfreeze()
-
 
         train(model, optimizer, TRAIN_PATH, MASK_PATH)
         test_loss = test(model, VAL_PATH, MASK_PATH)
