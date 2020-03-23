@@ -4,10 +4,20 @@ from skimage.io import imread
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-from albumentations import Compose, Normalize, \
-    RandomRotate90, VerticalFlip, HorizontalFlip, \
-    RandomBrightnessContrast, IAAAdditiveGaussianNoise, \
-    CLAHE, RGBShift, RandomGamma, Resize, RandomSizedCrop
+from albumentations import (
+    Compose,
+    Normalize,
+    RandomRotate90,
+    VerticalFlip,
+    HorizontalFlip,
+    RandomBrightnessContrast,
+    IAAAdditiveGaussianNoise,
+    CLAHE,
+    RGBShift,
+    RandomGamma,
+    Resize,
+    RandomSizedCrop,
+)
 from torch.utils.data import Dataset
 from skimage.transform import resize
 import numpy as np
@@ -16,36 +26,41 @@ from skimage.morphology import binary_dilation
 
 test_aug = Normalize()
 
-train_aug = Compose([
-    RandomRotate90(),
-    VerticalFlip(),
-    HorizontalFlip(),
-    RGBShift(p=.2),
-    RandomGamma(p=.2),
-    CLAHE(p=.2),
-    RandomBrightnessContrast(p=.2),
-    IAAAdditiveGaussianNoise(p=.2),
-    Normalize()
-])
+train_aug = Compose(
+    [
+        RandomRotate90(),
+        VerticalFlip(),
+        HorizontalFlip(),
+        RGBShift(p=0.2),
+        RandomGamma(p=0.2),
+        CLAHE(p=0.2),
+        RandomBrightnessContrast(p=0.2),
+        IAAAdditiveGaussianNoise(p=0.2),
+        Normalize(),
+    ]
+)
 
-test_seg_aug = Compose([
-    Resize(576, 576, 0, p=1),
-    Normalize()
-], additional_targets={'mask1': 'mask', 'mask2': 'mask'})
+test_seg_aug = Compose(
+    [Resize(576, 576, 0, p=1), Normalize()],
+    additional_targets={"mask1": "mask", "mask2": "mask"},
+)
 
-train_seg_aug = Compose([
-    RandomRotate90(),
-    VerticalFlip(),
-    HorizontalFlip(),
-    RandomSizedCrop((450, 450), 576, 576, interpolation=0, p=.3),
-    RGBShift(p=.1),
-    RandomGamma(p=.1),
-    CLAHE(p=.1),
-    RandomBrightnessContrast(p=.1),
-    IAAAdditiveGaussianNoise(p=.1),
-    Resize(576, 576, 0),
-    Normalize()
-], additional_targets={'mask1': 'mask', 'mask2': 'mask'})
+train_seg_aug = Compose(
+    [
+        RandomRotate90(),
+        VerticalFlip(),
+        HorizontalFlip(),
+        RandomSizedCrop((450, 450), 576, 576, interpolation=0, p=0.3),
+        RGBShift(p=0.1),
+        RandomGamma(p=0.1),
+        CLAHE(p=0.1),
+        RandomBrightnessContrast(p=0.1),
+        IAAAdditiveGaussianNoise(p=0.1),
+        Resize(576, 576, 0),
+        Normalize(),
+    ],
+    additional_targets={"mask1": "mask", "mask2": "mask"},
+)
 
 
 class ClassifierDataset(Dataset):
@@ -57,7 +72,7 @@ class ClassifierDataset(Dataset):
             self.aug = train_aug
         else:
             self.aug = test_aug
-        self.ims = [im_path for im_path in self.ims_path.glob('*.tif')]
+        self.ims = [im_path for im_path in self.ims_path.glob("*.tif")]
 
     def __len__(self):
         return len(self.ims)
@@ -65,7 +80,7 @@ class ClassifierDataset(Dataset):
     def __getitem__(self, idx):
         im_path = self.ims[idx]
         raw_img = np.array(imread(im_path))
-        aug_img = self.aug(image=raw_img)['image']
+        aug_img = self.aug(image=raw_img)["image"]
 
         if self.cls == 1:
             cls = 1
@@ -81,7 +96,7 @@ class ClassifierDataset(Dataset):
 class ClassifierPredictor(Dataset):
     def __init__(self, ims_path):
         self.ims_path = ims_path
-        self.ims = [im for im in ims_path.glob('*.tif')]
+        self.ims = [im for im in ims_path.glob("*.tif")]
         self.aug = test_aug
 
     def __len__(self):
@@ -91,7 +106,7 @@ class ClassifierPredictor(Dataset):
         im_path = self.ims[idx]
         raw_img = np.array(imread(im_path))
 
-        aug_img = self.aug(image=raw_img)['image']
+        aug_img = self.aug(image=raw_img)["image"]
 
         return im_path.name, aug_img.transpose([2, 0, 1])
 
@@ -110,7 +125,7 @@ class SegmentationPredictor(Dataset):
         im_path = self.ims_path[idx]
         raw_img = np.array(imread(im_path))
 
-        aug_img = self.aug(image=raw_img)['image']
+        aug_img = self.aug(image=raw_img)["image"]
 
         return im_path.name, aug_img.transpose([2, 0, 1]), raw_img.shape[:2]
 
@@ -124,7 +139,7 @@ class SegmentationDataset(Dataset):
             self.aug = train_seg_aug
         else:
             self.aug = test_seg_aug
-        self.ims = [im_path for im_path in self.ims_path.glob('*.tif')]
+        self.ims = [im_path for im_path in self.ims_path.glob("*.tif")]
 
     def __len__(self):
         return len(self.ims)
@@ -135,13 +150,13 @@ class SegmentationDataset(Dataset):
 
         raw_mask = np.array(imread(self.msks_path / im_path.name))
         cnt_img = mask_to_contours(raw_mask)
-        mask = (raw_mask > 0).astype('float32')
+        mask = (raw_mask > 0).astype("float32")
 
         data = self.aug(image=raw_img, mask1=mask, mask2=cnt_img)
 
-        aug_img = data['image']
-        mask1 = data['mask1']
-        mask2 = data['mask2']
+        aug_img = data["image"]
+        mask1 = data["mask1"]
+        mask2 = data["mask2"]
 
         y = np.stack([mask1, mask2], axis=0)
 
@@ -159,4 +174,4 @@ def mask_to_contours(mask):
         mask_all[..., i] = borders
 
     overlapping = np.sum(mask_all, axis=-1) > 0
-    return overlapping.astype('float32')
+    return overlapping.astype("float32")

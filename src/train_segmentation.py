@@ -7,32 +7,27 @@ from pytorch_toolbelt.losses import JointLoss, WeightedLoss, JaccardLoss
 from src.data_provider import SegmentationDataset
 from pathlib import Path
 
-out_dir = Path('data/test/preds2/')
-
 
 def make_loss():
     loss1 = JaccardLoss(mode="multilabel")
-    loss2 = nn.BCEWithLogitsLoss()
-    return JointLoss(loss1, loss2, .9, .1)
+    return loss1
 
 
 def train(model, optimizer, ims_path, msks_path):
     model = model.train().cuda()
     criterion = make_loss()
-    jaccard = JaccardLoss(mode='multilabel')
+    jaccard = JaccardLoss(mode="multilabel")
 
     losses = []
     jaccs = []
 
-    positives = DataLoader(SegmentationDataset(ims_path / 'true', msks_path, True),
-                           batch_size=7,
-                           num_workers=3, pin_memory=True, shuffle=True)
-
-    #negatives = DataLoader(SegmentationDataset(ims_path / 'false', msks_path, True),
-    #                       batch_size=1,
-    #                       num_workers=1, pin_memory=True, shuffle=True)
-    #
-    #batch_iterator = enumerate(zip(positives, negatives))
+    positives = DataLoader(
+        SegmentationDataset(ims_path / "true", msks_path, True),
+        batch_size=7,
+        num_workers=3,
+        pin_memory=True,
+        shuffle=True,
+    )
 
     with tqdm(total=len(positives)) as pbar:
         for i, (x, y) in enumerate(positives):
@@ -51,25 +46,27 @@ def train(model, optimizer, ims_path, msks_path):
             loss.backward()
             optimizer.step()
 
-            pbar.set_postfix(loss=np.mean(losses),
-                             jacc=np.mean(jaccs),
-                             refresh=True)
+            pbar.set_postfix(loss=np.mean(losses), jacc=np.mean(jaccs), refresh=True)
             pbar.update()
 
 
 @torch.no_grad()
 def test(model, ims_path, msks_path):
-    print(f'Testing')
+    print(f"Testing")
     model = model.eval().cuda()
 
-    test_set = DataLoader(SegmentationDataset(ims_path, msks_path, False),
-                          batch_size=8,
-                          num_workers=4, pin_memory=True, shuffle=False)
+    test_set = DataLoader(
+        SegmentationDataset(ims_path, msks_path, False),
+        batch_size=8,
+        num_workers=4,
+        pin_memory=True,
+        shuffle=False,
+    )
 
     losses = []
     jaccs = []
     criterion = make_loss()
-    jaccard = JaccardLoss(mode='multilabel')
+    jaccard = JaccardLoss(mode="multilabel")
 
     for i, (x, y) in enumerate(tqdm(test_set)):
         x, y = x.cuda(), y.cuda()
@@ -83,7 +80,5 @@ def test(model, ims_path, msks_path):
         losses.append(loss.item())
         jaccs.append(jacc_.item())
 
-    print(f'Testing metrics: '
-          f'jacc {np.mean(jaccs)}, '
-          f'loss {np.mean(losses)}')
+    print(f"Testing metrics: " f"jacc {np.mean(jaccs)}, " f"loss {np.mean(losses)}")
     return 1 - np.mean(jaccs)
